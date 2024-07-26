@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Response Checker</title>
+    <!-- Include Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f0f2f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            cursor: pointer;
+            position: relative;
+        }
+        th.sort-asc::after {
+            content: '▲';
+            position: absolute;
+            right: 8px;
+        }
+        th.sort-desc::after {
+            content: '▼';
+            position: absolute;
+            right: 8px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Site Response Checker</h1>
+        <button id="check-for-sites" class="btn btn-primary" onclick="check_sites()">Check For Sites</button>
+        <!--Search bar for site name and status code-->
+        <input type="text" id="searchInput" class="form-control mt-3" placeholder="Search by site name or status code" onkeyup="search()">
+        <!--Table of site:status-code-->
+        <p id="site-count">Site Count: </p>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th onclick="sortTable(0)">Site</th>
+                    <th onclick="sortTable(1)">Status Code</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Table rows will be dynamically inserted here -->
+            </tbody>
+        </table>
+    </div>
+</body>
+<script>
+    let site_data = {};
+    let sortDirection = [null, null]; // Track sort direction for each column
+
+    document.addEventListener('DOMContentLoaded', function() {
+        updateTable();
+        setInterval(updateTable, 2000);
+    });
+
+    function check_sites() {
+        // post to localhost:3000/api/sites
+        fetch(`/api/sites`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({sites: ['https://www.google.com', 'https://www.facebook.com', 'https://www.twitter.com']})
+        });
+    }
+
+    function updateTable() {    
+        fetch(`/api/sites`)
+            .then(response => response.json())
+            .then(data => {
+                site_data = data;
+                renderTable(data);
+                document.getElementById('site-count').innerHTML = `Site Count: ${Object.keys(site_data).length}`;
+            });
+    }
+
+    function renderTable(data) {
+        const tbody = document.querySelector('tbody');
+        tbody.innerHTML = '';
+        for (const [site, status_code] of Object.entries(data)) {
+            let bgcolor, color;
+            if (status_code >= 200 && status_code < 300) {
+                bgcolor = '#d4edda';
+                color = '#155724';
+            } else if (status_code >= 300 && status_code < 400) {
+                bgcolor = '#cce5ff';
+                color = '#004085';
+            } else if (status_code >= 400 && status_code < 500) {
+                bgcolor = '#f8d7da';
+                color = '#721c24';
+            } else {
+                bgcolor = '#fff3cd';
+                color = '#856404';
+            }
+            const row = document.createElement('tr');
+            const siteCell = document.createElement('td');
+            const statusCodeCell = document.createElement('td');
+            siteCell.textContent = site;
+            statusCodeCell.textContent = status_code;
+            row.appendChild(siteCell);
+            row.appendChild(statusCodeCell);
+            tbody.appendChild(row);
+            row.style.backgroundColor = bgcolor;
+            row.style.color = color;
+        }
+    }
+
+    function sortTable(columnIndex) {
+        const table = document.querySelector('table tbody');
+        const rows = Array.from(table.rows);
+        const isNumeric = columnIndex === 1;
+        const direction = sortDirection[columnIndex] === 'asc' ? 'desc' : 'asc';
+        sortDirection = [null, null];
+        sortDirection[columnIndex] = direction;
+
+        const sortedRows = rows.sort((a, b) => {
+            const aText = a.cells[columnIndex].textContent;
+            const bText = b.cells[columnIndex].textContent;
+            return isNumeric
+                ? direction === 'asc' ? aText - bText : bText - aText
+                : direction === 'asc' ? aText.localeCompare(bText) : bText.localeCompare(aText);
+        });
+
+        table.innerHTML = '';
+        sortedRows.forEach(row => table.appendChild(row));
+
+        document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+        document.querySelectorAll('th')[columnIndex].classList.add(direction === 'asc' ? 'sort-asc' : 'sort-desc');
+    }
+
+    function search() {
+        const input = document.getElementById('searchInput').value.toLowerCase();
+        const filteredData = Object.fromEntries(
+            Object.entries(site_data).filter(([site, status_code]) =>
+                site.toLowerCase().includes(input) || status_code.toString().toLowerCase().includes(input)
+            )
+        );
+        renderTable(filteredData);
+    }
+</script>
+</html>
