@@ -4,8 +4,16 @@ require('dotenv').config();
 const PORT = process.env.PORT || 3000;
 const IP = process.env.IP || 'localhost';
 
+SITE_POLL_TIMER = 3600000; // 1 hour
+DB_UPDATE_TIMER = 60000; // 1 minute
+
 const app = express();
-site_statuses = {};
+const fs = require('fs');
+// check if db.json exists
+if (!fs.existsSync('./public/db.json')) {
+    fs.writeFileSync('./public/db.json', '{}');
+}
+const site_statuses = JSON.parse(fs.readFileSync('./public/db.json').toString());
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -39,6 +47,13 @@ async function update_sites() {
     }
 }
 
+async function update_db(db_json_file){
+    // look at the site_statuses and update the db file
+    console.log("DB updating");
+    fs.writeFileSync(db_json_file, JSON.stringify(site_statuses));
+    console.log("DB updated");
+}
+
 app.get('/api/sites', (req, res) => {
     // return site_statuses
     console.log("GET /api/sites");
@@ -53,8 +68,8 @@ app.post('/api/sites', (req, res) => {
     res.json(site_statuses);
 });
 
-update_sites();
-setTimeout(update_sites, 3600000); // update every hour
+setTimeout(update_sites, SITE_POLL_TIMER); // update every hour
+setTimeout(update_db, DB_UPDATE_TIMER, './public/db.json'); // update every minute, just in case the user requests an update
 
 app.listen(PORT, IP, () => {
     console.log(`Server is running on http://${IP}:${PORT}`);
