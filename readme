@@ -6,6 +6,9 @@
 ## Features
 * 24/7 Monitoring: Continuous uptime tracking.
 
+## Screenshots
+![Image of Site Sentinel](image.png)
+
 ## Requirements
 * [Node.js](https://nodejs.org/en)
 * NPM (Included with some Node.js installations)
